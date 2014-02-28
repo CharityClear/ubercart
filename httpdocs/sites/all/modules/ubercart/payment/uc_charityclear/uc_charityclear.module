@@ -1,0 +1,202 @@
+<?php
+	/**
+	 * Implementation of hook_menu().
+	 * } */
+
+	function uc_charityclear_menu() {
+		$items = array();
+
+		$items['cart/charityclear/complete'] = array(
+			'title'           => 'Order complete',
+			'page callback'   => 'uc_charityclear_complete',
+			'access callback' => 'uc_charityclear_completion_access',
+			'type'            => MENU_CALLBACK,
+			'file'            => 'uc_charityclear.pages.inc',
+		);
+
+		$items['cart/charityclear/completed'] = array(
+			'title'           => 'Order Completed',
+			'page callback'   => 'uc_charityclear_completed',
+			'access callback' => 'uc_charityclear_completion_access',
+			'type'            => MENU_CALLBACK,
+			'file'            => 'uc_charityclear.pages.inc',
+		);
+
+		return $items;
+	}
+
+	/**
+	 * Implementation of hook_init().
+	 */
+	function uc_charityclear_init() {
+		global $conf;
+		$conf['i18n_variables'][] = 'uc_charityclear_method_title';
+		$conf['i18n_variables'][] = 'uc_charityclear_checkout_button';
+	}
+
+	/**
+	 * Make sure anyone can complete their charityclear orders.
+	 */
+	function uc_charityclear_completion_access() {
+		return true;
+	}
+
+	/**
+	 * Implementation of hook_ucga_display().
+	 */
+
+	function uc_charityclear_ucga_display() {
+		// Tell UC Google Analytics to display the e-commerce JS on the custom
+		// order completion page for this module.
+		if ( arg( 0 ) == 'cart' && arg( 1 ) == 'charityclear' && arg( 2 ) == 'complete' ) {
+			return true;
+		}
+	}
+
+	/**
+	 * Implementation of hook_form_alter().
+	 */
+	function uc_charityclear_form_alter( &$form, $form_state, $form_id ) {
+		if ( $form_id == 'uc_cart_checkout_review_form' && ( $order_id = intval( $_SESSION['cart_order'] ) ) > 0 ) {
+			$order = uc_order_load( $order_id );
+
+			if ( $order->payment_method == 'charityclear' ) {
+				drupal_add_css( drupal_get_path( 'module', 'uc_charityclear' ) . '/uc_charityclear.css' );
+				unset( $form['submit'] );
+				$form['#prefix'] = '<table id="two-checkout-review-table"><tr><td>';
+				$form['#suffix'] = '</td><td>' . drupal_get_form( 'uc_charityclear_form', $order ) . '</td></tr></table>';
+			}
+		}
+	}
+
+	/**
+	 * Implementation of hook_payment_method().
+	 *
+	 * @see uc_payment_method_charityclear()
+	}*/
+	function uc_charityclear_payment_method() {
+		$path  = base_path() . drupal_get_path( 'module', 'uc_charityclear' );
+		$title = variable_get( 'uc_charityclear_method_title', t( 'CharityClear' ) );
+
+		$methods[] = array(
+			'id'         => 'charityclear',
+			'name'       => t( 'charityclear' ),
+			'title'      => $title,
+			'review'     => t( 'Credit card' ),
+			'desc'       => t( 'Redirect to CharityClear to pay by credit card' ),
+			'callback'   => 'uc_payment_method_charityclear',
+			'weight'     => 3,
+			'checkout'   => true,
+			'no_gateway' => true,
+		);
+
+		return $methods;
+
+	}
+
+
+	/**
+	 * Add charityclear settings to the payment method settings form.
+	 *
+	 * @see uc_charityclear_payment_method()
+	 */
+
+	function uc_payment_method_charityclear( $op, &$arg1 ) {
+		switch ( $op ) {
+			case 'settings':
+				$form['uc_charityclear_merchantid']   = array(
+					'#type'          => 'textfield',
+					'#title'         => t( 'Merchant ID' ),
+					'#description'   => t( 'Your Merchant ID' ),
+					'#default_value' => variable_get( 'uc_charityclear_merchantid', '' ),
+					'#size'          => 16,
+				);
+				$form['uc_charityclear_secret']       = array(
+					'#type'          => 'textfield',
+					'#title'         => t( 'Pre Shared Key' ),
+					'#description'   => t( 'Your Pre Shared Key for signatures' ),
+					'#default_value' => variable_get( 'uc_charityclear_secret', '' ),
+					'#size'          => 16,
+				);
+				$form['uc_charityclear_currencycode'] = array(
+					'#type'          => 'textfield',
+					'#title'         => t( 'Currency Code' ),
+					'#description'   => t( 'Your Currency Code' ),
+					'#default_value' => variable_get( 'uc_charityclear_currencycode', '' ),
+					'#size'          => 16,
+				);
+
+				$form['uc_charityclear_countrycode'] = array(
+					'#type'          => 'textfield',
+					'#title'         => t( 'Country Code' ),
+					'#description'   => t( 'Your Country Code' ),
+					'#default_value' => variable_get( 'uc_charityclear_countrycode', '' ),
+					'#size'          => 16,
+				);
+
+				$form['uc_charityclear_method_title'] = array(
+					'#type'          => 'textfield',
+					'#title'         => t( 'Front End Name' ),
+					'#description'   => t( 'Module name as it appears to the customer' ),
+					'#default_value' => variable_get( 'uc_charityclear_method_title', '' ),
+					'#size'          => 16,
+				);
+
+				return $form;
+		}
+	}
+
+	function uc_charityclear_form( $form_state, $order ) {
+
+		$context = array(
+			'revision' => 'formatted-original',
+			'type'     => 'order_total',
+			'subject'  => array(
+				'order' => $order,
+			),
+		);
+
+		$options = array(
+			'sign' => false,
+			'dec'  => '.',
+			'thou' => false,
+		);
+		//var_dump( $order );
+		$data = array(
+			'merchantID'        => variable_get( 'uc_charityclear_merchantid', '100003' ),
+			'amount'            => str_replace( ".", "", uc_price( $order->order_total, $context, $options ) ),
+			'countryCode'       => variable_get( 'uc_charityclear_countrycode', '826' ),
+			'currencyCode'      => variable_get( 'uc_charityclear_currencycode', '826' ),
+			'transactionUnique' => $order->order_id . '-' . time(),
+			'orderRef'          => $order->order_id,
+			'redirectURL'       => url( 'cart/charityclear/complete', array( 'absolute' => true ) ),
+			'customerName'      => $order->billing_first_name . ' ' . $order->billing_last_name,
+			'customerPhone'     => $order->billing_phone,
+			'customerEmail'     => $order->primary_email,
+			'customerAddress'   => implode( "\n", array(
+													   $order->billing_street1,
+													   $order->billing_street2,
+													   $order->billing_city
+												  ) ),
+			'customerPostcode'  => $order->billing_postal_code
+		);
+
+		ksort( $data );
+		$data['signature'] = hash( 'SHA512', http_build_query( $data, '', '&' ) . variable_get( 'uc_charityclear_secret', 'Circle4Take40Idea' ) ) . '|' . implode( ',', array_keys( $data ) );
+
+		$form['#action'] = "https://gateway.charityclear.com/paymentform/";
+
+		foreach ( $data as $name => $value ) {
+			$form[$name] = array(
+				'#type'  => 'hidden',
+				'#value' => $value
+			);
+		}
+
+		$form['submit'] = array(
+			'#type'  => 'submit',
+			'#value' => variable_get( 'uc_charityclear_checkout_button', t( 'Submit Order' ) ),
+		);
+
+		return $form;
+	}

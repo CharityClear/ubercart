@@ -1,0 +1,4 @@
+<?php
+function uc_charityclear_uninstall() {
+  db_query("DELETE FROM {variable} WHERE name LIKE 'uc_charityclear_%%'");
+}
