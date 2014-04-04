@@ -173,6 +173,7 @@
 			'transactionUnique' => $order->order_id . '-' . time(),
 			'orderRef'          => $order->order_id,
 			'redirectURL'       => url( 'cart/charityclear/complete', array( 'absolute' => true ) ),
+			'callbackURL'       => url( 'cart/charityclear/complete', array( 'absolute' => true ) ).'?callback=1',
 			'customerName'      => $order->billing_first_name . ' ' . $order->billing_last_name,
 			'customerPhone'     => $order->billing_phone,
 			'customerEmail'     => $order->primary_email,
