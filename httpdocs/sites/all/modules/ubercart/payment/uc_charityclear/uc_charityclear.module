@@ -74,18 +74,17 @@
 	 *
 	 * @see uc_payment_method_charityclear()
 	}*/
-	function uc_charityclear_uc_payment_method() {
+	function uc_charityclear_payment_method() {
 		$path  = base_path() . drupal_get_path( 'module', 'uc_charityclear' );
-		$title = variable_get( 'uc_charityclear_method_title', t( 'charityclear' ) );
+		$title = variable_get( 'uc_charityclear_method_title', t( 'CharityClear' ) );
 
-		$methods['charityclear'] = array(
-			//'id'         => 'charityclear',
+		$methods[] = array(
+			'id'         => 'charityclear',
 			'name'       => t( 'charityclear' ),
 			'title'      => $title,
 			'review'     => t( 'Credit card' ),
-			'desc'       => t( 'Redirect to charityclear to pay by credit card' ),
+			'desc'       => t( 'Redirect to CharityClear to pay by credit card' ),
 			'callback'   => 'uc_payment_method_charityclear',
-			'redirect'   => 'uc_charityclear_form',
 			'weight'     => 3,
 			'checkout'   => true,
 			'no_gateway' => true,
@@ -96,15 +95,13 @@
 	}
 
 
-
-
 	/**
 	 * Add charityclear settings to the payment method settings form.
 	 *
 	 * @see uc_charityclear_payment_method()
 	 */
 
-	function uc_payment_method_charityclear( $op, &$order, $form = NULL, &$form_state = NULL ) {
+	function uc_payment_method_charityclear( $op, &$arg1 ) {
 		switch ( $op ) {
 			case 'settings':
 				$form['uc_charityclear_merchantid']   = array(
@@ -149,7 +146,7 @@
 		}
 	}
 
-	function uc_charityclear_form($form, $form_state, $order ) {
+	function uc_charityclear_form( $form_state, $order ) {
 
 		$context = array(
 			'revision' => 'formatted-original',
@@ -167,27 +164,28 @@
 		//var_dump( $order );
 		$data = array(
 			'merchantID'        => variable_get( 'uc_charityclear_merchantid', '100003' ),
-			'amount'            => uc_currency_format( $order->order_total, false, false, '.' )*100,//str_replace( ".", "", uc_price( $order->order_total, $context, $options ) ),
+			'amount'            => str_replace( ".", "", uc_price( $order->order_total, $context, $options ) ),
 			'countryCode'       => variable_get( 'uc_charityclear_countrycode', '826' ),
 			'currencyCode'      => variable_get( 'uc_charityclear_currencycode', '826' ),
 			'transactionUnique' => $order->order_id . '-' . time(),
 			'orderRef'          => $order->order_id,
 			'redirectURL'       => url( 'cart/charityclear/complete', array( 'absolute' => true ) ),
+			'callbackURL'       => url( 'cart/charityclear/complete', array( 'absolute' => true ) ).'?callback=1',
 			'customerName'      => $order->billing_first_name . ' ' . $order->billing_last_name,
 			'customerPhone'     => $order->billing_phone,
 			'customerEmail'     => $order->primary_email,
 			'customerAddress'   => implode( "\n", array(
-													   $order->billing_street1,
-													   $order->billing_street2,
-													   $order->billing_city
-												  ) ),
+				$order->billing_street1,
+				$order->billing_street2,
+				$order->billing_city
+			) ),
 			'customerPostcode'  => $order->billing_postal_code
 		);
 
 		ksort( $data );
 		$data['signature'] = hash( 'SHA512', http_build_query( $data, '', '&' ) . variable_get( 'uc_charityclear_secret', 'Circle4Take40Idea' ) ) . '|' . implode( ',', array_keys( $data ) );
 
-		$form['#action'] = "https://gateway.charityclear.com/hosted/";
+		$form['#action'] = "https://gateway.charityclear.com/paymentform/";
 
 		foreach ( $data as $name => $value ) {
 			$form[$name] = array(
