@@ -64,7 +64,6 @@
 
 		if (isset($_GET['callback'])) {
 			http_response_code(200);
-			file_put_contents('/tmp/dave-tonic.txt', var_export($_POST));
 			die('callback complete');
 		}
 		$page = "cart/charityclear/completed";
